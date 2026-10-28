@@ -1,7 +1,6 @@
 package repositories;
 
 import database.Database;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -33,6 +32,28 @@ public abstract class BaseRepository<T> {
         }
         return list;
 
+    }
+
+    public boolean delete(int id) throws SQLException {
+        String query = "DELETE FROM " + tableName + " WHERE id = ?";
+
+        try(PreparedStatement statement = conn.prepareStatement(query)) {
+            statement.setInt(1, id);
+            return statement.executeUpdate() == 1;
+        }
+    }
+
+    public T findById(int id) throws SQLException {
+        String query = "SELECT * FROM " + tableName + " WHERE id = ?";
+        try(PreparedStatement statement = conn.prepareStatement(query)) {
+            statement.setInt(1, id);
+            try(ResultSet results = statement.executeQuery()) {
+                if(results.next()) {
+                    return mapToEntity(results);
+                }
+            }
+        }
+        return null;
     }
 
 }
