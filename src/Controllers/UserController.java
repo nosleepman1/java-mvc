@@ -2,6 +2,7 @@ package Controllers;
 
 import Entities.User;
 import repositories.UserRepository;
+import utils.PasswordHasher;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -14,52 +15,29 @@ public class UserController {
         this.userRepository = new UserRepository();
     }
 
-    public void index() throws SQLException {
-
-        try {
-            List<User> users = userRepository.getAll();
-
-            IO.println("=====================================");
-            IO.println("LISTE DES UTILISATEURS");
-            IO.println("=====================================");
-            if(users.isEmpty()){
-                IO.println("La liste des utilisateurs est vide");
-            } else {
-                for (User user : users) {
-                    System.out.println(user);
-                }
-            }
-        } catch (SQLException ex) {
-            IO.println("Erreur lors de la recuperation de la liste des utilisateurs.");
-        }
-
-
+    public UserController(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
-     public boolean store() throws SQLException {
-        User user = new User();
-        IO.println("Votre nom :  ");
-        String nom = IO.readln();
-        IO.println("Votre email :  ");
-        String email = IO.readln();
-        IO.println("Votre mot de passe :  ");
-        String password = IO.readln();
-         IO.println("Votre age : ");
-         String ageInput = IO.readln();
+    public List<User> getAllUsers() throws SQLException {
+        return userRepository.getAll();
+    }
 
-         if (ageInput.trim().isEmpty()) {
-             ageInput = IO.readln();
-         }
+    public User getUserById(int id) throws SQLException {
+        return userRepository.findById(id);
+    }
 
-
-         int age = Integer.parseInt(ageInput.trim());
-
-
-         user.setNom(nom);
-        user.setEmail(email);
-        user.setAge(age);
-        user.setMdp(password);
-
+    public boolean createUser(String nom, String email, String password, int age) throws SQLException {
+        String hashedPassword = PasswordHasher.hashPassword(password);
+        User user = new User(nom, email, hashedPassword, age);
         return userRepository.create(user);
+    }
+
+    public boolean updateUser(int id, User user) throws SQLException {
+        return userRepository.update(id, user);
+    }
+
+    public boolean deleteUser(int id) throws SQLException {
+        return userRepository.delete(id);
     }
 }
