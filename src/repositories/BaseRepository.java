@@ -14,9 +14,15 @@ public abstract class BaseRepository<T> {
     protected String tableName;
 
     protected BaseRepository() throws SQLException {
-        conn = Database.getConnection();
+        this.conn = Database.getConnection();
     }
 
+    protected Connection getConnection() throws SQLException {
+        if (conn == null || conn.isClosed()) {
+            conn = Database.getConnection();
+        }
+        return conn;
+    }
 
     protected abstract T mapToEntity(ResultSet resultSet) throws SQLException;
 
@@ -24,36 +30,34 @@ public abstract class BaseRepository<T> {
         String query = "SELECT * FROM " + tableName;
         List<T> list = new ArrayList<>();
 
-        try(PreparedStatement statement = conn.prepareStatement(query);
-            ResultSet results = statement.executeQuery()) {
+        try (PreparedStatement statement = getConnection().prepareStatement(query);
+             ResultSet results = statement.executeQuery()) {
             while (results.next()) {
                 list.add(mapToEntity(results));
             }
         }
         return list;
-
     }
 
     public boolean delete(int id) throws SQLException {
         String query = "DELETE FROM " + tableName + " WHERE id = ?";
 
-        try(PreparedStatement statement = conn.prepareStatement(query)) {
+        try (PreparedStatement statement = getConnection().prepareStatement(query)) {
             statement.setInt(1, id);
-            return statement.executeUpdate() == 1;
+            return statement.executeUpdate() > 0;
         }
     }
 
     public T findById(int id) throws SQLException {
         String query = "SELECT * FROM " + tableName + " WHERE id = ?";
-        try(PreparedStatement statement = conn.prepareStatement(query)) {
+        try (PreparedStatement statement = getConnection().prepareStatement(query)) {
             statement.setInt(1, id);
-            try(ResultSet results = statement.executeQuery()) {
-                if(results.next()) {
+            try (ResultSet results = statement.executeQuery()) {
+                if (results.next()) {
                     return mapToEntity(results);
                 }
             }
         }
         return null;
     }
-
 }
