@@ -58,4 +58,87 @@ public class TaskRepository extends BaseRepository<Task> {
             return false;
         }
     }
+
+    public List<Task> findByProjectId(int projectId) throws SQLException {
+        String sql = "SELECT * FROM tasks WHERE project_id = ? ORDER BY id ASC";
+        List<Task> list = new ArrayList<>();
+
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
+            statement.setInt(1, projectId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    list.add(mapToEntity(resultSet));
+                }
+            }
+        }
+        return list;
+    }
+
+    public List<Task> findByUserId(int userId) throws SQLException {
+        String sql = """
+            SELECT t.* FROM tasks t
+            INNER JOIN projects p ON t.project_id = p.id
+            WHERE p.user_id = ?
+            ORDER BY t.project_id ASC, t.id ASC
+        """;
+        List<Task> list = new ArrayList<>();
+
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
+            statement.setInt(1, userId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    list.add(mapToEntity(resultSet));
+                }
+            }
+        }
+        return list;
+    }
+
+    public boolean update(Task task) throws SQLException {
+        String sql = "UPDATE tasks SET titre = ?, description = ?, statut = ?, date_echeance = ? WHERE id = ?";
+
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
+            statement.setString(1, task.getTitre());
+            statement.setString(2, task.getDescription());
+            statement.setString(3, task.getStatut());
+
+            if (task.getDateEcheance() != null) {
+                statement.setDate(4, Date.valueOf(task.getDateEcheance()));
+            } else {
+                statement.setNull(4, Types.DATE);
+            }
+
+            statement.setInt(5, task.getId());
+
+            return statement.executeUpdate() == 1;
+        }
+    }
+
+    public boolean updateStatus(int id, String newStatus) throws SQLException {
+        String sql = "UPDATE tasks SET statut = ? WHERE id = ?";
+
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
+            statement.setString(1, newStatus);
+            statement.setInt(2, id);
+
+            return statement.executeUpdate() == 1;
+        }
+    }
+
+    public boolean isTaskOwnedByUser(int taskId, int userId) throws SQLException {
+        String sql = """
+            SELECT 1 FROM tasks t
+            INNER JOIN projects p ON t.project_id = p.id
+            WHERE t.id = ? AND p.user_id = ?
+        """;
+
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
+            statement.setInt(1, taskId);
+            statement.setInt(2, userId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        }
+    }
 }
+
