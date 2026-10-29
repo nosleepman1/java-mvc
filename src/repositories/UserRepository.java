@@ -1,10 +1,12 @@
 package repositories;
 
 import Entities.User;
+import utils.PasswordHasher;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 public class UserRepository extends BaseRepository<User> {
 
@@ -27,20 +29,29 @@ public class UserRepository extends BaseRepository<User> {
     public boolean create(User user) throws SQLException {
         String sql = "INSERT INTO users (nom, email, mdp, age) VALUES (?, ?, ?, ?)";
 
-        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+        try (PreparedStatement statement = getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, user.getNom());
             statement.setString(2, user.getEmail());
             statement.setString(3, user.getMdp());
             statement.setInt(4, user.getAge());
 
-            return statement.executeUpdate() == 1;
+            int affectedRows = statement.executeUpdate();
+            if (affectedRows == 1) {
+                try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        user.setId(generatedKeys.getInt(1));
+                    }
+                }
+                return true;
+            }
+            return false;
         }
     }
 
     public User findByEmail(String email) throws SQLException {
         String sql = "SELECT * FROM users WHERE email = ?";
 
-        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
             statement.setString(1, email);
 
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -49,48 +60,33 @@ public class UserRepository extends BaseRepository<User> {
                 }
             }
         }
-
         return null;
     }
 
     public boolean update(int id, User user) throws SQLException {
-        String sql = "UPDATE users SET nom = ?, email = ?, mdp = ?, age = ? WHERE id = ?";
+        String sql = "UPDATE users SET nom = ?, email = ?, age = ? WHERE id = ?";
 
-        // verify if user exist
         User existingUser = findById(id);
         if (existingUser == null) {
             return false;
         }
 
-        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
             statement.setString(1, user.getNom());
             statement.setString(2, user.getEmail());
-            statement.setString(3, user.getMdp());
-            statement.setInt(4, user.getAge());
-            statement.setInt(5, user.getId());
+            statement.setInt(3, user.getAge());
+            statement.setInt(4, id);
 
             return statement.executeUpdate() == 1;
         }
     }
 
-    public boolean login(String email, String password) throws SQLException {
-        String sql = "SELECT * FROM users WHERE email = ? AND mdp = ?";
-
-        try (PreparedStatement statement = conn.prepareStatement(sql)) {
-            statement.setString(1, email);
-            statement.setString(2, password);
-
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    return true;
-                }
-            }
+    public boolean updatePassword(int id, String newHashedPassword) throws SQLException {
+        String sql = "UPDATE users SET mdp = ? WHERE id = ?";
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
+            statement.setString(1, newHashedPassword);
+            statement.setInt(2, id);
+            return statement.executeUpdate() == 1;
         }
-
-        return false;
     }
-
-    
-
-    
 }
