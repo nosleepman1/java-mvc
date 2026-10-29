@@ -49,7 +49,7 @@ public class UserRepository extends BaseRepository<User> {
     }
 
     public User findByEmail(String email) throws SQLException {
-        String sql = "SELECT * FROM users WHERE email = ?";
+        String sql = "SELECT * FROM users WHERE LOWER(email) = LOWER(?)";
 
         try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
             statement.setString(1, email);
@@ -88,5 +88,21 @@ public class UserRepository extends BaseRepository<User> {
             statement.setInt(2, id);
             return statement.executeUpdate() == 1;
         }
+    }
+
+    public User authenticate(String email, String hashedPassword) throws SQLException {
+        String sql = "SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND mdp = ?";
+
+        try (PreparedStatement statement = getConnection().prepareStatement(sql)) {
+            statement.setString(1, email);
+            statement.setString(2, hashedPassword);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return mapToEntity(resultSet);
+                }
+            }
+        }
+        return null;
     }
 }
