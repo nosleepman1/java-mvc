@@ -1,127 +1,103 @@
-# Java Native MVC avec JDBC
+# Gestionnaire de Projets et de Tâches (Java MVC)
 
-Ce projet est une application Java native développée selon le modèle architectural MVC, avec JDBC pour l'accès aux données et MySQL comme système de gestion de base de données.
+Application console de gestion de projets et de tâches implémentant le patron d'architecture **MVC (Modèle - Vue - Contrôleur)** avec **authentification sécurisée (mots de passe hachés en SHA-256)** et persistance des données sous **MySQL (JDBC)**.
 
-L'objectif est de mettre en pratique les principes de la programmation orientée objet, la séparation des responsabilités et la structuration d'une application Java en plusieurs couches, sans utiliser de framework comme Spring Boot.
+---
 
-## Technologies utilisées
+## 🏗️ Architecture du Projet
 
-- **Java** : langage de programmation.
-- **JDBC** : connexion à la base de données et exécution des requêtes SQL.
-- **MySQL** : système de gestion de base de données relationnelle.
-- **Maven** : gestion des dépendances et compilation du projet.
+Le projet respecte scrupuleusement la séparation des responsabilités :
 
-## Architecture du projet
-
-Le code source est organisé en plusieurs packages, chacun ayant une responsabilité précise.
-
-- **Controllers** : gèrent les interactions entre les entrées de l'application et les services.
-- **Services** : contiennent la logique métier et coordonnent les opérations.
-- **Repositories** : gèrent l'accès aux données avec JDBC et les requêtes SQL.
-- **Entities** : représentent les objets métier manipulés par l'application.
-
-## Structure du projet
-
-```text
+```
 src/
-└── main/
-    └── java/
-        └── ...
-            ├── controllers/
-            ├── services/
-            ├── repositories/
-            └── entities/
-                ├── BaseEntity.java
-                └── UserEntity.java
+├── database/
+│   ├── Database.java         # Gestion de la connexion JDBC et auto-initialisation des tables
+│   └── schema.sql            # Script SQL de création de la base et des tables
+├── Entities/                 # Modèles de données
+│   ├── User.java             # Entité Utilisateur
+│   ├── Project.java          # Entité Projet (titre, description, date, tâches, userId)
+│   ├── Task.java             # Entité Tâche (titre, description, statut, date échéance, projectId)
+│   └── TaskStatus.java       # Énumération des statuts (A_FAIRE, EN_COURS, TERMINE)
+├── repositories/             # Couche d'accès aux données (Data Access Object / DAO)
+│   ├── BaseRepository.java   # Classe générique abstraite (CRUD de base)
+│   ├── UserRepository.java   # Opérations CRUD et authentification des utilisateurs
+│   ├── ProjectRepository.java# Opérations sur les projets par utilisateur
+│   └── TaskRepository.java   # Opérations sur les tâches par projet/utilisateur
+├── utils/
+│   └── PasswordHasher.java   # Utilitaire de hachage SHA-256 des mots de passe
+├── Controllers/              # Logique métier et orchestration
+│   ├── AuthController.java   # Inscription, connexion, session active et changement de mot de passe
+│   ├── ProjectController.java# Gestion des projets de l'utilisateur connecté
+│   ├── TaskController.java   # Gestion des tâches et des statuts
+│   └── UserController.java   # Administration des utilisateurs
+├── views/                    # Couche Présentation / Menus interactifs en console
+│   ├── ConsoleUtils.java     # Saisie sécurisée, barres de progression et mise en forme
+│   ├── AuthView.java         # Menus de connexion et d'inscription
+│   ├── ProjectView.java      # Menu et affichages de gestion des projets
+│   ├── TaskView.java         # Menu et affichages de gestion des tâches
+│   └── MainView.java         # Tableau de bord principal et navigation
+├── Main.java                 # Point d'entrée de l'application (instancie les contrôleurs et les vues)
+└── TestApp.java              # Suite de tests d'intégration automatisés
 ```
 
-## Concepts et fonctionnalités
+---
 
-### 1. Architecture MVC et séparation des responsabilités
+## 🔐 Sécurité & Hachage des Mots de Passe
 
-Le projet sépare les contrôleurs, les services, les repositories et les entités afin de faciliter la maintenance, les tests et l'évolution du code.
+- Les mots de passe ne sont **jamais stockés en clair** en base de données.
+- Utilisation de `PasswordHasher` basé sur `java.security.MessageDigest` avec l'algorithme standard **SHA-256** (empreinte hexadécimale de 64 caractères).
+- Lors de l'inscription : le mot de passe est haché avant l'insertion SQL.
+- Lors de la connexion : le mot de passe saisi est haché puis comparé au hash stocké en base.
 
-### 2. Classe abstraite BaseEntity
+---
 
-La classe abstraite `BaseEntity` définit un contrat commun aux entités de l'application.
+## 🗄️ Schéma de la Base de Données (`java_shop`)
 
-Elle contient notamment la méthode `mapToEntity`, utilisée pour transformer les résultats issus de la base de données en objets Java.
+1. **Table `users`** :
+   - `id` INT AUTO_INCREMENT PRIMARY KEY
+   - `nom` VARCHAR(100) NOT NULL
+   - `email` VARCHAR(150) NOT NULL UNIQUE
+   - `mdp` VARCHAR(255) NOT NULL *(hash SHA-256)*
+   - `age` INT
 
-Les entités concrètes, comme `UserEntity`, héritent de `BaseEntity` et implémentent leur propre logique de mapping.
+2. **Table `projects`** :
+   - `id` INT AUTO_INCREMENT PRIMARY KEY
+   - `titre` VARCHAR(150) NOT NULL
+   - `description` TEXT
+   - `date_creation` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   - `user_id` INT NOT NULL (clé étrangère vers `users(id)` avec `ON DELETE CASCADE`)
 
-### 3. Abstraction des repositories
+3. **Table `tasks`** :
+   - `id` INT AUTO_INCREMENT PRIMARY KEY
+   - `titre` VARCHAR(150) NOT NULL
+   - `description` TEXT
+   - `statut` VARCHAR(30) DEFAULT 'A_FAIRE'
+   - `date_echeance` DATE
+   - `project_id` INT NOT NULL (clé étrangère vers `projects(id)` avec `ON DELETE CASCADE`)
 
-Les repositories encapsulent les opérations d'accès aux données et permettent de centraliser les interactions avec la base de données.
+*Note : Les tables sont créées automatiquement au démarrage via `Database.initDatabase()`.*
 
-Le modèle prévoit notamment les méthodes suivantes :
+---
 
-- `getById` : récupérer une entité à partir de son identifiant.
-- `getAll` : récupérer l'ensemble des entités.
-- `delete` : supprimer une entité.
+## 🚀 Exécution
 
-Les repositories spécifiques, comme celui des utilisateurs, peuvent étendre cette abstraction et ajouter des méthodes adaptées à leurs besoins.
+### 1. Avec IntelliJ IDEA
+- Ouvrir le dossier du projet dans IntelliJ IDEA.
+- Exécuter la classe `Main.java`.
 
-### 4. Accès aux données avec JDBC
+### 2. En Ligne de Commande
 
-JDBC est utilisé pour établir les connexions à MySQL, préparer et exécuter les requêtes SQL, puis convertir les résultats en objets Java.
+**Compilation :**
+```powershell
+javac -cp "lib/mysql-connector-j-9.4.0.jar" -d out (Get-ChildItem -Path src -Filter *.java -Recurse | Select-Object -ExpandProperty FullName)
+```
 
-### 5. Programmation orientée objet
+**Lancement de l'application :**
+```powershell
+java -cp "out;lib/mysql-connector-j-9.4.0.jar" Main
+```
 
-Le projet met en pratique plusieurs concepts fondamentaux :
-
-- Encapsulation.
-- Héritage.
-- Abstraction.
-- Polymorphisme.
-- Séparation des responsabilités.
-- Réutilisation du code.
-
-## Objectifs pédagogiques
-
-- Comprendre le fonctionnement de JDBC.
-- Concevoir une architecture Java organisée en couches.
-- Appliquer les principes de la programmation orientée objet.
-- Utiliser des classes abstraites pour mutualiser les comportements.
-- Structurer l'accès aux données avec le Repository Pattern.
-- Implémenter les opérations CRUD.
-- Comprendre le mapping entre les résultats SQL et les objets Java.
-
-## Installation et exécution
-
-### Prérequis
-
-- JDK compatible avec le projet.
-- Maven.
-- MySQL.
-
-### Étapes
-
-1. Cloner le dépôt :
-
-   ```bash
-   git clone <URL_DU_DEPOT>
-   ```
-
-2. Créer la base de données MySQL et configurer les paramètres de connexion.
-
-3. Charger les dépendances Maven.
-
-4. Compiler le projet :
-
-   ```bash
-   mvn compile
-   ```
-
-   Sous Windows, si le Maven Wrapper est disponible :
-
-   ```powershell
-   .\mvnw.cmd compile
-   ```
-
-5. Exécuter la classe principale depuis IntelliJ IDEA ou avec la commande adaptée à la configuration du projet.
-
-## Auteur
-
-Abdallah Diouf
-
-GitHub : [nosleepman1](https://github.com/nosleepman1)
+**Lancement des tests automatisés :**
+```powershell
+java -ea -cp "out;lib/mysql-connector-j-9.4.0.jar" TestApp
+```
